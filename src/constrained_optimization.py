@@ -35,7 +35,7 @@ class LeastVolumeBinarySearch:
         #### determine convergence ####
         if self.residual >= 0:
             self._lamb_max = self.lamb
-            if torch.abs(self.g)/self.eps <= self.threshold: # end recursion if is converged
+            if torch.abs(self.residual)/self.eps <= self.threshold: # end recursion if is converged
                 return True, self.lamb, self.vol_func(), self.rec_loss()
         elif self.residual < 0:
             self._lamb_min = self.lamb
