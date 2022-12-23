@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.parametrizations import spectral_norm
-from . import layers, flows
+from . import layers
 from .utils import first_element
 
 class DCGenerator(nn.Module):
