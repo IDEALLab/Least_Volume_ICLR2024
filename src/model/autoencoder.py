@@ -3,13 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import functorch as ft
-import math
-from torch.optim import Optimizer
-from torch.distributions import Normal
-from torch.distributions.independent import Independent
-from torch.distributions.kl import kl_divergence
-from .utils import first_element
-from random import randrange
 from tqdm import tqdm
 
 class _AutoEncoder(nn.Module):
@@ -20,7 +13,7 @@ class _AutoEncoder(nn.Module):
         self.decoder = Decoder(**configs['decoder'])
         self.optim = Optimizer(self.parameters(), **configs['optimizer'])
         self.register_buffer('w', torch.as_tensor(weights, dtype=torch.float))
-        self.name = configs['vae']['name']
+        self.name = configs['name']
         self._init_epoch = 0
     
     def loss(self, batch, **kwargs):
@@ -64,20 +57,22 @@ class _AutoEncoder(nn.Module):
 
     def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks, **kwargs): pass
     
-    def save(self, save_dir, **kwargs):
+    def save(self, save_dir, epoch, *args, **kwargs):
+        file_name = self.name+'{}'.format(epoch)+'_'.join([str(arg) for arg in args])
         torch.save({
             'params': self.state_dict(),
             'optim': self.optim.state_dict(),
             'configs': self.configs,
+            'epoch': epoch,
             'misc': kwargs
-            }, os.path.join(save_dir, self.name+str(kwargs['epoch'])+'.tar'))
+            }, os.path.join(save_dir, file_name+'.tar'))
 
     def load(self, checkpoint):
         ckp = torch.load(checkpoint)
         self.load_state_dict(ckp['params'])
         self.optim.load_state_dict(ckp['optim'])
         self.configs = ckp['configs']
-        self._init_epoch = ckp['misc']['epoch'] + 1
+        self._init_epoch = ckp['epoch'] + 1
 
 
 class AutoEncoder(_AutoEncoder):
@@ -96,48 +91,6 @@ class AutoEncoder(_AutoEncoder):
         if epoch % report_interval == 0:
             if tb_writer:
                 tb_writer.add_scalar('rec', loss.item(), epoch)
-            else:
-                pass
-        for callback in callbacks:
-            try: 
-                callback(self, epoch=epoch, epochs=pbar.total, batch=batch, loss=loss, tb_writer=tb_writer, **kwargs)
-            except:
-                pass
-
-
-class IsometricAE(AutoEncoder):
-    def loss(self, x, **kwargs):
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
-        v = F.normalize(torch.randn_like(z), dim=1)
-        return torch.stack([self.loss_rec(x, x_hat), self.loss_iso(z, v, 1),  self.loss_piso(x, v, 1)])
-
-    def loss_iso(self, z, v, n=None):
-        f = lambda z: self.decoder(z)
-        jvp = ft.jvp(f, (z[:n],), (v[:n],))[1]
-        norm = jvp.flatten(1).norm(dim=1)
-        return F.mse_loss(norm, torch.ones_like(norm))
-
-    def loss_piso(self, x, v, n=None):
-        g = lambda x: self.encoder(x)
-        vjp, = ft.vjp(g, x[:n])[1](v[:n]) # i.e., vjp_fn(v)
-        norm = vjp.flatten(1).norm(dim=1)
-        return F.mse_loss(norm, torch.ones_like(norm))
-    
-    def _batch_report(self, i, batch, loss, pbar, tb_writer, callbacks, **kwargs): 
-        pbar.set_postfix({
-            'rec': loss[0].item(), 
-            'iso': loss[1].item(), 
-            'piso': loss[2].item()
-            }) 
-        pbar.refresh()
-
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks=[], report_interval=1, **kwargs):
-        if epoch % report_interval == 0:
-            if tb_writer:
-                tb_writer.add_scalar('rec', loss[0].item(), epoch)
-                tb_writer.add_scalar('iso', loss[1].item(), epoch)
-                tb_writer.add_scalar('piso', loss[2].item(), epoch)
             else:
                 pass
         for callback in callbacks:
@@ -174,54 +127,3 @@ class CondensedAE(AutoEncoder):
                 callback(self, epoch=epoch, epochs=pbar.total, batch=batch, loss=loss, tb_writer=tb_writer, **kwargs)
             except:
                 pass
-
-class VAE(_AutoEncoder):
-    def __init__(self, configs: dict, Encoder, Decoder, Optimizer):
-        super().__init__(configs, Encoder, Decoder, Optimizer)
-        self.log_sigma = nn.Parameter(torch.tensor(0.0))
-        self.optim = Optimizer(self.parameters(), **configs['optimizer'])
-    
-    def _kl_div_qp(self, x):
-        z_mean, z_log_std = self.encoder(x)
-        z_std = torch.exp(z_log_std)
-        p_z = Independent(Normal(torch.zeros_like(z_mean), torch.ones_like(z_std)), 1)
-        q_zx = Independent(Normal(z_mean, z_std), 1)
-        return kl_divergence(q_zx, p_z) # [batch]
-    
-    def _log_pxz(self, x): # batch: samples of x
-        z_mean, z_log_std = self.encoder(x) # [batch, latent_dim]
-        z_std = torch.exp(z_log_std)
-        q_zx = Independent(Normal(z_mean, z_std), 1)
-        x_hat = first_element(self.decoder(q_zx.rsample())) # [batch, x_dim_0,...]
-        p_xz = Independent(Normal(x_hat, torch.exp(self.log_sigma)), len(x_hat.shape[1:]))
-        return p_xz.log_prob(x) # [batch]
-
-    def elbo(self, x, z_num=1):
-        expz_log_pxz = torch.stack([self._log_pxz(x) for _ in range(z_num)]).mean(0)
-        return torch.mean(expz_log_pxz - self._kl_div_qp(x))
-    
-    def loss(self, batch, **kwargs):
-        return -self.elbo(batch)
-    
-    def _batch_report(self, i, batch, loss, pbar, tb_writer, callbacks, **kwargs): 
-        pbar.set_postfix({'ELBO': -loss.item()}); pbar.refresh()
-
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks=[], report_interval=1, **kwargs):
-        if epoch % report_interval == 0:
-            if tb_writer:
-                tb_writer.add_scalar('ELBO', -loss, epoch)
-            else:
-                print('[Epoch {}/{}] ELBO: {:d}'.format(epoch, pbar.total, -loss))
-        for callback in callbacks:
-            try: 
-                callback(self, epoch=epoch, epochs=pbar.total, batch=batch, loss=loss, tb_writer=tb_writer, **kwargs)
-            except:
-                pass
-
-class BinaryVAE(VAE):
-    def _log_pxz(self, x): # batch: samples of x
-        z_mean, z_log_std = self.encoder(x) # [batch, latent_dim]
-        z_std = torch.exp(z_log_std)
-        q_zx = Independent(Normal(z_mean, z_std), 1)
-        x_hat = first_element(self.decoder(q_zx.rsample())) # [batch, x_dim_0,...]
-        return -F.binary_cross_entropy(x_hat, x, reduction='none').flatten(1).sum(-1) # / torch.exp(self.log_sigma).pow(2) / 2 # [batch]

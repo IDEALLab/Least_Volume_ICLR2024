@@ -5,9 +5,7 @@ import torch.nn.functional as F
 import functorch as ft
 from torch.utils.data import Dataset, DataLoader
 import sys; sys.path.append('../src/')
-from model.autoencoder import IsometricAE
 from model.cmpnts import MLP
-from model.flow import _RealNVP
 from tqdm import tqdm, trange
 
 class TensorDataset(Dataset):
@@ -104,7 +102,7 @@ class IsometricEmbedding(Dataset):
         loss_iso = F.mse_loss(norm, torch.ones_like(norm))
         
         _, s, _ = torch.svd(Y - Y.mean(0), compute_uv=False)
-        loss_nlr = s.var()
+        loss_nlr = s.var() / len(Y)
         return loss_iso, loss_nlr
 
     def __len__(self):
