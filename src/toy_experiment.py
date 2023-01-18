@@ -38,7 +38,7 @@ class Experiment:
         path = os.path.join(save_dir, '{:.0e}'.format(lam)) # model/man/amb/i/lam
         os.makedirs(path)
         self.model.save(path, epochs)
-        np.savetxt(os.path.join(path, 'history.csv'), np.asarray(history))
+        np.savetxt(os.path.join(path, self.model.name+'_history.csv'), np.asarray(history))
         
     def init_model(self, lam):
         self.model = self.AE(
@@ -132,26 +132,30 @@ def create_savedir(l, d, i):
 
 #### main #####
 
-def main(ae_name, device='cpu'):
+def main(ae_name, epochs=10000, batch=100, device='cpu'):
     ll = [1, 2, 4, 8, 16, 32]
     dd = [2, 4, 8, 16, 32]
     ii = range(5)
     lams = 10 ** np.linspace(-6, 0, 13)
+    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4]
 
-    for l, d, i in product(ll, dd, ii):
-        dataset = read_dataset(l, d*l, i, device=device)
-        dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
-        configs = generate_configs(d*l, [64, 64, 64], ae_name)
-        save_dir = create_savedir(l, d*l, i)
+    for l, width in zip(ll, ww):
+        for d, i in product(dd, ii):
+            dataset = read_dataset(l, d*l, i, device=device)
+            dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
+            configs = generate_configs(d*l, width, ae_name)
+            save_dir = create_savedir(l, d*l, i)
 
-        experiment = Experiment(configs, MLP, MLP, Adam, ae_dict[ae_name], device=device)
-        experiment.run(dataloader=dataloader, epochs=10, lams=lams, save_dir=save_dir) # epochs to be modified
+            experiment = Experiment(configs, MLP, MLP, Adam, ae_dict[ae_name], device=device)
+            experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir) # epochs to be modified
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('ae_name', help='name of the autoencoder to be trained')
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
+    parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
+    parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
     args = parser.parse_args()
 
-    main(args.ae_name, args.device)
+    main(args.ae_name, args.epochs, args.batch, args.device)
