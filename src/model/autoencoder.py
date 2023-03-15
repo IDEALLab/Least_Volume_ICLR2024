@@ -77,8 +77,8 @@ class _AutoEncoder(nn.Module):
 
 class AutoEncoder(_AutoEncoder):
     def loss(self, x, **kwargs):
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
+        z = self.encode(x)
+        x_hat = self.decode(z)
         return self.loss_rec(x, x_hat)
 
     def loss_rec(self, x, x_hat):
@@ -104,8 +104,8 @@ class CondensedAE(AutoEncoder):
         super().__init__(configs, Encoder, Decoder, Optimizer, weights)
     
     def loss(self, x, **kwargs):
-        z = self.encoder(x)
-        x_hat = self.decoder(z)
+        z = self.encode(x)
+        x_hat = self.decode(z)
         return torch.stack([self.loss_rec(x, x_hat), self.loss_vol(z)])
     
     def loss_vol(self, z):

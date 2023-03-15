@@ -7,6 +7,9 @@ def l2_loss(x, y):
     d = x - y
     return d.flatten(1).norm(dim=1).mean()
 
+def count_triu(d):
+    return (d * d - d) / 2
+
 @torch.no_grad()
 def explained_reconstruction(encoder, decoder, dataset, rec_loss, idx=None):
     z = encoder(dataset)
@@ -23,18 +26,22 @@ def explained_reconstruction(encoder, decoder, dataset, rec_loss, idx=None):
             z_p = z.clone(); z_p[:, i] = z_mean[i]
             loss[i] = rec_loss(decoder(z_p), dataset) 
         exp_rec = (loss - eps) / (denom - eps)
-        return *exp_rec.sort(), z.std(0) # e_r and idx
+        return exp_rec, z.std(0) # e_r and idx
     else:
         z_p = z.clone(); z_p[:, idx] = z_mean[idx]
         loss = rec_loss(decoder(z_p), dataset)
         exp_rec = (loss - eps) / (denom - eps)
         return exp_rec
 
+
 @torch.no_grad()
-def mean_correlation(encoder, dataset, idx):
-    pass
+def mean_correlation(encoder, dataset, idx=None):
+    Z = encoder(dataset)
+    C =  torch.corrcoef(Z.T)[0, 1]
+    C_ = C[idx][:, idx]
+    return C_.triu(1).sum() / count_triu(len(C_))
 
 @torch.no_grad()
 def importance_correlation(z_std, exp_rec):
     X = torch.stack([z_std, exp_rec]) 
-    return torch.corrcoef(X)[1, 1]
+    return torch.corrcoef(X)[0, 1]
