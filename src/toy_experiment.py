@@ -10,7 +10,7 @@ import argparse
 from tqdm import tqdm
 from copy import deepcopy
 from model.autoencoder import AutoEncoder
-from model.cmpnts import MLP
+from model.cmpnts import MLP, SNMLP
 from dataset.toy import TensorDataset, DataLoader
 from itertools import product
 
@@ -117,7 +117,7 @@ class DynamicPruningAE(_SparseAE):
             self._zstd_ = torch.lerp(self._zstd_, z.std(0), 1-self._beta) 
             self._zmean_ = torch.lerp(self._zmean_, z.mean(0), 1-self._beta)
         else:
-            self._rec_ = loss_rec
+            self._rec_ = loss_rec.clone()
             self._zstd_ = z.std(0)
             self._zmean_ = z.mean(0)
 
@@ -126,7 +126,7 @@ class DynamicPruningAE(_SparseAE):
         if self._rec_ < self._r_t:
             p_idx = self._zstd_ < self._z_t
             z_idx = (p_idx != self._p) & (self._p == False) # idx to be pruned: False -> True
-            self._p |= p_idx # update pruning index
+            self._p = self._p | p_idx # update pruning index
             self._z[z_idx] = self._zmean_[z_idx] # type: ignore
 
 
@@ -146,7 +146,8 @@ ae_dict = {
     'vol': VolumeAE,
     'l1': L1AE,
     'l2': L2AE,
-    'lasso': LassoAE
+    'lasso': LassoAE,
+    'non': AutoEncoder
 }
 
 
@@ -183,11 +184,11 @@ def create_savedir(l, d, i):
 #### main #####
 
 def main(ae_name, epochs=10000, batch=100, device='cpu'):
-    ll = [1, 2, 4, 8, 16, 32]
+    ll = [1, 2, 4, 8, 16, 32][:4]
     dd = [2, 4, 8, 16, 32]
     ii = range(5)
-    lams = 10 ** np.linspace(-6, 0, 13)
-    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4]
+    lams = [0] #10 ** np.linspace(-6, 0, 13)
+    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][:4]
 
     for l, width in zip(ll, ww):
         for d, i in product(dd, ii):
@@ -196,7 +197,7 @@ def main(ae_name, epochs=10000, batch=100, device='cpu'):
             configs = generate_configs(d*l, width, ae_name)
             save_dir = create_savedir(l, d*l, i)
 
-            experiment = Experiment(configs, MLP, MLP, Adam, ae_dict[ae_name], device=device)
+            experiment = Experiment(configs, MLP, SNMLP, Adam, ae_dict[ae_name], device=device) # SNMLP for spectral normalization
             experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir) # epochs to be modified
 
 

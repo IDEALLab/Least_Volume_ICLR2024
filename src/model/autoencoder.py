@@ -28,7 +28,7 @@ class _AutoEncoder(nn.Module):
 
     def fit(
         self, dataloader, epochs,
-        save_dir=None, save_iter_list=[100,], tb_writer=None, callbacks=[], **kwargs
+        save_dir=None, save_iter_list=[], tb_writer=None, callbacks=[], **kwargs
         ):
         with tqdm(
             range(self._init_epoch, epochs), initial=self._init_epoch, total=epochs,
