@@ -13,6 +13,7 @@ from model.autoencoder import AutoEncoder
 from model.cmpnts import MLP, SNMLP
 from dataset.toy import TensorDataset, DataLoader
 from itertools import product
+import torch.multiprocessing as mp
 
 class Experiment:
     def __init__(self, configs, Encoder, Decoder, Optimizer, AE, device='cpu') -> None:
@@ -183,15 +184,31 @@ def create_savedir(l, d, i):
 
 #### main #####
 
-def main(ae_name, epochs=10000, batch=100, device='cpu'):
-    ll = [1, 2, 4, 8, 16, 32][:4]
+# def main(ae_name, epochs=10000, batch=100, device='cpu'):
+#     ll = [1, 2, 4, 8, 16, 32][:4]
+#     dd = [2, 4, 8, 16, 32]
+#     ii = range(5)
+#     lams = [0] #10 ** np.linspace(-6, 0, 13)
+#     ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][:4]
+
+#     for l, width in zip(ll, ww):
+#         for d, i in product(dd, ii):
+#             dataset = read_dataset(l, d*l, i, device=device)
+#             dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
+#             configs = generate_configs(d*l, width, ae_name)
+#             save_dir = create_savedir(l, d*l, i)
+
+#             experiment = Experiment(configs, MLP, SNMLP, Adam, ae_dict[ae_name], device=device) # SNMLP for spectral normalization
+#             experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir) # epochs to be modified
+
+def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu'):
+    ll = [1, 2, 4, 8, 16, 32][1:4]
     dd = [2, 4, 8, 16, 32]
-    ii = range(5)
     lams = [0] #10 ** np.linspace(-6, 0, 13)
-    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][:4]
+    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][1:4]
 
     for l, width in zip(ll, ww):
-        for d, i in product(dd, ii):
+        for d in dd:
             dataset = read_dataset(l, d*l, i, device=device)
             dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
             configs = generate_configs(d*l, width, ae_name)
@@ -207,6 +224,10 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
     parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
+    parser.add_argument('-i', '--folds', type=int, default=5, help='number of cross validation folds')
     args = parser.parse_args()
 
-    main(args.ae_name, args.epochs, args.batch, args.device)
+    # main(args.ae_name, args.epochs, args.batch, args.device)
+    for i in range(args.folds):
+        p = mp.Process(target=main_mp, args=(args.ae_name, i, args.epochs, args.batch, args.device))
+        p.start()
