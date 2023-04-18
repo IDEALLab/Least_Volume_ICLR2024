@@ -28,12 +28,13 @@ class Experiment:
         for lam in lams:
             history = []
             self.init_model(lam)
-            self.model.fit(
+            epoch = self.model.fit(
                 dataloader=dataloader,
                 epochs=epochs, # maybe convergence criterion is better
-                history=history
+                history=history, 
+                save_dir=save_dir
                 )
-            self.save_result(lam, history, epochs, save_dir)
+            self.save_result(lam, history, epoch if epoch is not None else epochs, save_dir)
     
     def save_result(self, lam, history, epochs, save_dir):
         path = os.path.join(save_dir, '{:.0e}'.format(lam)) # model/man/amb/i/lam
@@ -154,7 +155,7 @@ ae_dict = {
 
 ##### Functions ######
 
-def generate_configs(data_dim, width, name):
+def generate_configs(data_dim, width, name, lr=1e-3):
     configs = dict()
     configs['encoder'] = {
         'in_features': data_dim,
@@ -166,12 +167,12 @@ def generate_configs(data_dim, width, name):
         'out_features': data_dim,
         'layer_width': width
         }
-    configs['optimizer'] = {'lr': 1e-3}
+    configs['optimizer'] = {'lr': lr}
     configs['name'] = name
     return configs
 
 def read_dataset(latent_dim, data_dim, i, device='cpu'):
-    path = '../data/toy/{}-manifold/{}-ambient/'.format(latent_dim, data_dim)
+    path = '../data_new/toy/{}-manifold/{}-ambient/'.format(latent_dim, data_dim)
     data_name = '{}-{}_{}.npy'.format(latent_dim, data_dim, i)
     tensor = torch.as_tensor(np.load(os.path.join(path, data_name)), dtype=torch.float, device=device) # type:ignore
     return TensorDataset(tensor)
@@ -181,31 +182,11 @@ def create_savedir(l, d, i):
     os.makedirs(dir, exist_ok=True)
     return dir
 
-
-#### main #####
-
-# def main(ae_name, epochs=10000, batch=100, device='cpu'):
-#     ll = [1, 2, 4, 8, 16, 32][:4]
-#     dd = [2, 4, 8, 16, 32]
-#     ii = range(5)
-#     lams = [0] #10 ** np.linspace(-6, 0, 13)
-#     ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][:4]
-
-#     for l, width in zip(ll, ww):
-#         for d, i in product(dd, ii):
-#             dataset = read_dataset(l, d*l, i, device=device)
-#             dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
-#             configs = generate_configs(d*l, width, ae_name)
-#             save_dir = create_savedir(l, d*l, i)
-
-#             experiment = Experiment(configs, MLP, SNMLP, Adam, ae_dict[ae_name], device=device) # SNMLP for spectral normalization
-#             experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir) # epochs to be modified
-
 def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu'):
-    ll = [1, 2, 4, 8, 16, 32][1:4]
+    ll = [1, 2, 4, 8, 16, 32][:4]
     dd = [2, 4, 8, 16, 32]
     lams = [0] #10 ** np.linspace(-6, 0, 13)
-    ww = [[32]*4, [48]*4, [64]*4, [96]*4, [128]*4, [256]*4][1:4]
+    ww = [[32]*4, [64]*4, [128]*4, [256]*4, [512]*4, [1024]*4][:4]
 
     for l, width in zip(ll, ww):
         for d in dd:

@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import functorch as ft
 from tqdm import tqdm
+from .utils import first_element
 
 class _AutoEncoder(nn.Module):
     def __init__(self, configs: dict, Encoder, Decoder, Optimizer, weights=1):
@@ -15,6 +16,7 @@ class _AutoEncoder(nn.Module):
         self.register_buffer('w', torch.as_tensor(weights, dtype=torch.float))
         self.name = configs['name']
         self._init_epoch = 0
+        self._loss_hist = []
     
     def loss(self, batch, **kwargs):
         """tensor of loss terms"""
@@ -27,8 +29,8 @@ class _AutoEncoder(nn.Module):
         return self.encoder(x_batch)
 
     def fit(
-        self, dataloader, epochs,
-        save_dir=None, save_iter_list=[], tb_writer=None, callbacks=[], **kwargs
+        self, dataloader, epochs, # maximal epoch
+        save_dir=None, save_iter_list=[], tb_writer=None, callbacks=[], history=[], eps=None, **kwargs
         ):
         with tqdm(
             range(self._init_epoch, epochs), initial=self._init_epoch, total=epochs,
@@ -43,11 +45,21 @@ class _AutoEncoder(nn.Module):
                     (loss * self.w).sum().backward()
                     self.optim.step()
                     self._batch_report(i, batch, loss, pbar, tb_writer, callbacks, **kwargs)
-                self._epoch_report(epoch, batch, loss, pbar, tb_writer, callbacks, **kwargs)
-    
+                self._epoch_report(epoch, batch, loss, pbar, tb_writer, callbacks, history, **kwargs)
+                self._update_hist(first_element(loss))
+
                 if save_dir:
                     if save_iter_list and epoch in save_iter_list:
                         self.save(save_dir, epoch=epoch)
+
+                if eps is not None and torch.as_tensor(self._loss_hist).std() < eps: 
+                    return epoch
+
+    @ torch.no_grad()
+    def _update_hist(self, rec_loss):
+        self._loss_hist.append(rec_loss)
+        if len(self._loss_hist) > 100:
+            self._loss_hist.pop(0)
     
     def _batch_hook(self, i, batch, pbar, tb_writer, callbacks, **kwargs): pass
     
@@ -55,7 +67,7 @@ class _AutoEncoder(nn.Module):
 
     def _epoch_hook(self, epoch, pbar, tb_writer, callbacks, **kwargs): pass
 
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks, **kwargs): pass
+    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks, history, **kwargs): pass
     
     def save(self, save_dir, epoch, *args, **kwargs):
         file_name = self.name+'{}'.format(epoch)+'_'.join([str(arg) for arg in args])
@@ -87,12 +99,12 @@ class AutoEncoder(_AutoEncoder):
     def _batch_report(self, i, batch, loss, pbar, tb_writer, callbacks, **kwargs): 
         pbar.set_postfix({'rec': loss.item()}); pbar.refresh()
 
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks=[], report_interval=1, **kwargs):
+    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks=[], history=[], report_interval=1, **kwargs):
         if epoch % report_interval == 0:
             if tb_writer:
                 tb_writer.add_scalar('rec', loss.item(), epoch)
             else:
-                pass
+                history.append(loss.detach().cpu().numpy())
         for callback in callbacks:
             try: 
                 callback(self, epoch=epoch, epochs=pbar.total, batch=batch, loss=loss, tb_writer=tb_writer, **kwargs)

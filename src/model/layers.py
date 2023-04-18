@@ -6,6 +6,7 @@ from torch import Tensor
 from torch.nn.utils.parametrizations import spectral_norm
 from math import sqrt
 from .utils import first_element
+from .utils.parametrization import spectral_norm_conv
 
 _eps = 1e-7
 
@@ -133,6 +134,8 @@ class LinearCombo(_Combo):
         self.model = nn.Sequential(
             nn.Linear(in_features, out_features),
             # nn.BatchNorm1d(out_features),
+            # nn.ELU()
+            # nn.Softplus()
             nn.LeakyReLU(alpha)
         )
 
@@ -144,6 +147,8 @@ class SNLinearCombo(_Combo):
         self.model = nn.Sequential(
             spectral_norm(nn.Linear(in_features, out_features)),
             # nn.BatchNorm1d(out_features),
+            # nn.ELU()
+            # nn.Softplus()
             nn.LeakyReLU(alpha)
         )
 
@@ -216,8 +221,6 @@ class Deconv2DCombo(_Combo):
         )
 
 class SNDeconv2DCombo(_Combo):
-    r"""Regular deconvolutional layer combo.
-    """
     def __init__(
         self, in_channels, out_channels, kernel_size, 
         stride=1, padding=0, alpha=0.2
@@ -225,6 +228,18 @@ class SNDeconv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             spectral_norm(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)),
+            # nn.BatchNorm2d(out_channels),
+            nn.LeakyReLU(alpha)
+        )
+
+class TrueSNDeconv2DCombo(_Combo):
+    def __init__(
+        self, in_shape, in_channels, out_channels, kernel_size, 
+        stride=1, padding=0, alpha=0.2
+        ):
+        super().__init__()
+        self.model = nn.Sequential(
+            spectral_norm_conv(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding), in_shape),
             # nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(alpha)
         )
@@ -282,7 +297,27 @@ class ResidualBlock(nn.Module):
             nn.Linear(in_features, out_features),
             nn.BatchNorm1d(out_features)
         )
-        self.activate = nn.LeakyReLU(alpha)
+        self.activate = nn.Softplus() #nn.LeakyReLU(alpha)
+    
+    def forward(self, x):
+        residual = x if self.should_apply_shortcut else 0
+        x = self.blocks(x)
+        x += residual
+        x = self.activate(x)
+        return x
+    
+    @property
+    def should_apply_shortcut(self):
+        return self.in_features == self.out_features
+
+class SNResidualBlock(nn.Module):
+    def __init__(self, in_features, out_features, alpha=0.2):
+        super().__init__()
+        self.in_features, self.out_features = in_features, out_features
+        self.blocks = nn.Sequential(
+            spectral_norm(nn.Linear(in_features, out_features))
+        )
+        self.activate = nn.Softplus() #nn.LeakyReLU(alpha)
     
     def forward(self, x):
         residual = x if self.should_apply_shortcut else 0

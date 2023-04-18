@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.nn.utils.parametrizations import spectral_norm
 from . import layers
 from .utils import first_element
+from .utils.parametrization import spectral_norm_conv
 
 class DCGenerator(nn.Module):
     """
@@ -103,6 +104,37 @@ class SNDCGenerator(DCGenerator):
                 ))
             )
         return deconv
+    
+class TrueSNDCGenerator(DCGenerator):
+    def __init__(
+        self, in_features: int, out_width: int, out_height: int,
+        channels: list = [8, 4, 2, 1],
+        dense_layers: list = [1024,]
+        ):
+        super().__init__(in_features, out_width, out_height, channels, dense_layers)
+        self.dense = SNMLP(
+            in_features,
+            self.m_width * self.m_height * channels[0],
+            dense_layers
+            )
+
+    def _build_deconv(self):
+        in_shapes = [(self.m_height*2**n, self.m_width*2**n) for n in range(len(self.channels) - 1)]
+        deconv = nn.Sequential()
+        for idx, ((in_chnl, out_chnl), in_shape) in enumerate(zip(self.layer_sizes[:-1], in_shapes[:-1])):
+            deconv.add_module(
+                str(idx), layers.TrueSNDeconv2DCombo(
+                    in_shape, in_chnl, out_chnl, 
+                    kernel_size=4, stride=2, padding=1
+                    )
+                )
+        deconv.add_module(
+            str(idx+1), spectral_norm_conv(nn.ConvTranspose2d(
+                *self.layer_sizes[-1], 
+                kernel_size=4, stride=2, padding=1
+                ), in_shapes[-1])
+            )
+        return deconv
         
 class SADCGenerator(DCGenerator):
     def __init__(self, *args, **kwargs):
@@ -195,7 +227,7 @@ class MLP(nn.Module):
     """
     def __init__(
         self, in_features: int, out_features:int, layer_width: list, 
-        combo = layers.LinearCombo
+        combo = layers.ResidualBlock #layers.LinearCombo
         ):
         super().__init__()
         self.in_features = in_features

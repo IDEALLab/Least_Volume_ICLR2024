@@ -47,53 +47,56 @@ class GraphDataset(Dataset):
 class IsometricEmbedding(Dataset):
     def __init__(
         self, 
-        X: Union[torch.Tensor, Dataset],
-        out_dim: int
+        X: torch.distributions.Distribution,
+        out_dim: int,
+        flow: nn.Module,
+        N: int
         ):
         self.out_dim = out_dim
-        self.in_dim = X[0].flatten().size(0)
+        self.in_dim = X.mean.flatten().size(0)
         assert self.in_dim <= self.out_dim, 'Target data space has lower dimension.'
-        self.X = X if isinstance(X, Dataset) else TensorDataset(X)
+        self.X = X
+        self.flow = flow
+        self.dataset = self(N).detach()
 
     def embed(
         self,
-        flow: nn.Module,
         optimizer: torch.optim.Optimizer,
-        epochs: int=500,
+        epochs: int=10000,
         batch_size: int=32,
         lam: float=1.
         ):
-        flow.train()
-        def fn(X):
-            fn_dim = self.out_dim - self.in_dim
-            X_ = torch.cat([X, torch.zeros(len(X), fn_dim, device=X.device)], dim=-1)
-            return flow(X_)
-
-        dataloader = DataLoader(self.X, batch_size, shuffle=True)
+        self.flow.train()
         iso_av = nlr_av = None # moving average
         with trange(epochs, 
                     bar_format='{l_bar}{bar:30}{r_bar}', 
                     desc='Embedding') as pbar:
             for _ in pbar:
-                for batch in dataloader:
-                    optimizer.zero_grad()
-                    loss_iso, loss_nlr = self._loss(batch, fn)
-                    loss = lam * loss_iso + loss_nlr
-                    loss.backward()
-                    optimizer.step()
+                batch = self.X.sample(torch.Size([batch_size]))
+                optimizer.zero_grad()
+                loss_iso, loss_nlr = self._loss(batch, self) # self is function
+                loss = lam * loss_iso + loss_nlr
+                loss.backward()
+                optimizer.step()
 
-                    pbar.set_postfix({'isometricity': torch.sqrt(loss_iso).item(), 
-                        'linearity': torch.sqrt(loss_nlr).item()}); pbar.refresh()
-                    with torch.no_grad(): 
-                        iso_av = loss_iso.detach() if iso_av is None else iso_av.lerp(loss_iso.detach(), 0.1) # avoid memory leak
-                        nlr_av = loss_nlr.detach() if nlr_av is None else nlr_av.lerp(loss_nlr.detach(), 0.1)
+                pbar.set_postfix({'isometricity': torch.sqrt(loss_iso).item(), 
+                    'linearity': torch.sqrt(loss_nlr).item()}); pbar.refresh()
+                with torch.no_grad(): 
+                    iso_av = loss_iso.detach() if iso_av is None else iso_av.lerp(loss_iso.detach(), 0.1) # avoid memory leak
+                    nlr_av = loss_nlr.detach() if nlr_av is None else nlr_av.lerp(loss_nlr.detach(), 0.1)
 
-        flow.eval()
+        self.flow.eval()
         with torch.no_grad(): 
-            self.dataset = fn(self.X[:])
+            self.dataset = self(len(self)).detach()
             self.isometricity = torch.sqrt(iso_av.detach())   # type: ignore
             self.linearity = torch.sqrt(nlr_av.detach())   # type: ignore
 
+    def __call__(self, input):
+        fn_dim = self.out_dim - self.in_dim
+        X = self.X.sample(torch.Size([input])) if isinstance(input, int) else input
+        X_ = torch.cat([X, torch.zeros(len(X), fn_dim, device=X.device)], dim=-1)
+        return self.flow(X_)
+    
     def _loss(self, X, f):
         V = F.normalize(torch.randn_like(X), dim=1)
         Y, P = ft.jvp(f, (X,), (V,))  # type: ignore
