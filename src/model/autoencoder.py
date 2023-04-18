@@ -46,14 +46,15 @@ class _AutoEncoder(nn.Module):
                     self.optim.step()
                     self._batch_report(i, batch, loss, pbar, tb_writer, callbacks, **kwargs)
                 self._epoch_report(epoch, batch, loss, pbar, tb_writer, callbacks, history, **kwargs)
-                self._update_hist(first_element(loss))
-
+                
                 if save_dir:
                     if save_iter_list and epoch in save_iter_list:
                         self.save(save_dir, epoch=epoch)
 
-                if eps is not None and torch.as_tensor(self._loss_hist).std() < eps: 
-                    return epoch
+                if eps is not None: 
+                    self._update_hist(first_element(loss))
+                    if torch.as_tensor(self._loss_hist).std() < eps: 
+                        return epoch
 
     @ torch.no_grad()
     def _update_hist(self, rec_loss):

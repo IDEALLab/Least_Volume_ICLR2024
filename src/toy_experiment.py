@@ -14,6 +14,7 @@ from model.cmpnts import MLP, SNMLP
 from dataset.toy import TensorDataset, DataLoader
 from itertools import product
 import torch.multiprocessing as mp
+from math import sqrt
 
 class Experiment:
     def __init__(self, configs, Encoder, Decoder, Optimizer, AE, device='cpu') -> None:
@@ -24,15 +25,15 @@ class Experiment:
         self.AE = AE
         self.device = device
     
-    def run(self, dataloader, epochs, lams, save_dir):
+    def run(self, dataloader, epochs, lams, save_dir, eps=0):
         for lam in lams:
             history = []
             self.init_model(lam)
             epoch = self.model.fit(
                 dataloader=dataloader,
                 epochs=epochs, # maybe convergence criterion is better
-                history=history, 
-                save_dir=save_dir
+                history=history,
+                eps=eps if eps > 0 else None
                 )
             self.save_result(lam, history, epoch if epoch is not None else epochs, save_dir)
     
@@ -132,6 +133,19 @@ class DynamicPruningAE(_SparseAE):
             self._z[z_idx] = self._zmean_[z_idx] # type: ignore
 
 
+class DynamicPruningAE_v2(DynamicPruningAE):
+    """This version requires only r_t threshold"""
+    @torch.no_grad()
+    def _prune(self):
+        n = self.configs['encoder']['in_features']
+        sup = self._zstd_[~self._p].min()
+        if torch.sqrt(self._rec_) + sup / sqrt(n) < self._r_t:
+            p_idx = self._zstd_ == sup
+            z_idx = (p_idx != self._p) & (self._p == False) # idx to be pruned: False -> True
+            self._p = self._p | p_idx # update pruning index
+            self._z[z_idx] = self._zmean_[z_idx] # type: ignore
+
+
 class L1AE(_SparseAE):
     def loss_spar(self, z):
         return z.std(0).norm(p=1)
@@ -155,15 +169,15 @@ ae_dict = {
 
 ##### Functions ######
 
-def generate_configs(data_dim, width, name, lr=1e-3):
+def generate_configs(data_dim, width, name, lr=1e-4):
     configs = dict()
     configs['encoder'] = {
         'in_features': data_dim,
-        'out_features': min(128, data_dim),
+        'out_features': min(256, data_dim),
         'layer_width': width
         }
     configs['decoder'] = {
-        'in_features': min(128, data_dim),
+        'in_features': min(256, data_dim),
         'out_features': data_dim,
         'layer_width': width
         }
@@ -172,20 +186,20 @@ def generate_configs(data_dim, width, name, lr=1e-3):
     return configs
 
 def read_dataset(latent_dim, data_dim, i, device='cpu'):
-    path = '../data_new/toy/{}-manifold/{}-ambient/'.format(latent_dim, data_dim)
+    path = '../data/toy_new/{}-manifold/{}-ambient/'.format(latent_dim, data_dim)
     data_name = '{}-{}_{}.npy'.format(latent_dim, data_dim, i)
     tensor = torch.as_tensor(np.load(os.path.join(path, data_name)), dtype=torch.float, device=device) # type:ignore
     return TensorDataset(tensor)
 
 def create_savedir(l, d, i):
-    dir = os.path.join('../saves/toy/{}-man/{}-amb/#{}/'.format(l, d, i))
+    dir = os.path.join('../saves/toy_new/{}-man/{}-amb/#{}/'.format(l, d, i))
     os.makedirs(dir, exist_ok=True)
     return dir
 
-def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu'):
+def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu', eps=None):
     ll = [1, 2, 4, 8, 16, 32][:4]
     dd = [2, 4, 8, 16, 32]
-    lams = [0] #10 ** np.linspace(-6, 0, 13)
+    lams = 10 ** np.linspace(-6, 0, 7) # change to [0] for 'non'
     ww = [[32]*4, [64]*4, [128]*4, [256]*4, [512]*4, [1024]*4][:4]
 
     for l, width in zip(ll, ww):
@@ -196,7 +210,7 @@ def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu'):
             save_dir = create_savedir(l, d*l, i)
 
             experiment = Experiment(configs, MLP, SNMLP, Adam, ae_dict[ae_name], device=device) # SNMLP for spectral normalization
-            experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir) # epochs to be modified
+            experiment.run(dataloader=dataloader, epochs=epochs, lams=lams, save_dir=save_dir, eps=eps) # epochs to be modified
 
 
 if __name__ == '__main__':
@@ -205,10 +219,11 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
     parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
-    parser.add_argument('-i', '--folds', type=int, default=5, help='number of cross validation folds')
+    parser.add_argument('-i', '--folds', type=int, default=4, help='number of cross validation folds')
+    parser.add_argument('--eps', type=float, default=0, help='covergence threshold')
     args = parser.parse_args()
 
     # main(args.ae_name, args.epochs, args.batch, args.device)
     for i in range(args.folds):
-        p = mp.Process(target=main_mp, args=(args.ae_name, i, args.epochs, args.batch, args.device))
+        p = mp.Process(target=main_mp, args=(args.ae_name, i, args.epochs, args.batch, args.device, args.eps))
         p.start()
