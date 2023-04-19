@@ -196,15 +196,12 @@ class Conv2DNetwork(nn.Module):
 
 class DCDiscriminator(Conv2DNetwork):
     def __init__(
-        self, in_channels: int, in_features: int, n_critics: int, 
+        self, in_channels: int, in_width: int, in_height:int, n_critics: int, 
         conv_channels: list, crt_layers: list
         ):
-        super().__init__(in_channels, in_features, conv_channels=conv_channels)
+        super().__init__(in_channels, in_width, in_height, conv_channels=conv_channels)
         self.n_critics = n_critics
-        self.critics = nn.Sequential(
-            MLP(self.m_features, crt_layers[-1], crt_layers[:-1]),
-            nn.Linear(crt_layers[-1], n_critics)
-        )
+        self.critics = MLP(self.m_features, n_critics, crt_layers)
 
     def forward(self, input):
         x = super().forward(input)
@@ -227,7 +224,7 @@ class MLP(nn.Module):
     """
     def __init__(
         self, in_features: int, out_features:int, layer_width: list, 
-        combo = layers.ResidualBlock #layers.LinearCombo
+        combo = layers.LinearCombo
         ):
         super().__init__()
         self.in_features = in_features

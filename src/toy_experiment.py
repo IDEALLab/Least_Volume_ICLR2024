@@ -65,7 +65,7 @@ class _SparseAE(AutoEncoder):
     def _batch_report(self, i, batch, loss, pbar, tb_writer, callbacks, **kwargs): 
         pbar.set_postfix({'rec': loss[0].item(), 'spar': loss[1].item()}); pbar.refresh()
 
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer=None, callbacks=[], report_interval=1, history=[], **kwargs):
+    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer=None, callbacks=[], history=[], report_interval=1, **kwargs):
         if epoch % report_interval == 0:
             if tb_writer:
                 tb_writer.add_scalar('rec', loss[0].item(), epoch)
