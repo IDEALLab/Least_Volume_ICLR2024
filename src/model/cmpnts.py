@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils.parametrizations import spectral_norm
 from . import layers
+from .flow import _RealNVP
 from .utils import first_element
 from .utils.parametrization import spectral_norm_conv
 
@@ -64,7 +65,7 @@ class DCGenerator(nn.Module):
                     )
                 )
         deconv.add_module(
-            str(idx+1), nn.ConvTranspose2d(
+            str(idx+1), nn.ConvTranspose2d( # type:ignore
                 *self.layer_sizes[-1], 
                 kernel_size=4, stride=2, padding=1
                 )
@@ -98,7 +99,7 @@ class SNDCGenerator(DCGenerator):
                     )
                 )
         deconv.add_module(
-            str(idx+1), spectral_norm(nn.ConvTranspose2d(
+            str(idx+1), spectral_norm(nn.ConvTranspose2d( # type:ignore
                 *self.layer_sizes[-1], 
                 kernel_size=4, stride=2, padding=1
                 ))
@@ -129,7 +130,7 @@ class TrueSNDCGenerator(DCGenerator):
                     )
                 )
         deconv.add_module(
-            str(idx+1), spectral_norm_conv(nn.ConvTranspose2d(
+            str(idx+1), spectral_norm_conv(nn.ConvTranspose2d( # type:ignore
                 *self.layer_sizes[-1], 
                 kernel_size=4, stride=2, padding=1
                 ), in_shapes[-1])
@@ -152,7 +153,7 @@ class SADCGenerator(DCGenerator):
             if out_chnl >= 8:
                 deconv.add_module('attention_'+str(idx), layers.SelfAttention(out_chnl))
         deconv.add_module(
-            str(idx+1), nn.ConvTranspose2d(
+            str(idx+1), nn.ConvTranspose2d( # type:ignore
                 *self.layer_sizes[-1], 
                 kernel_size=4, stride=2, padding=1
                 )
@@ -239,7 +240,7 @@ class MLP(nn.Module):
         model = nn.Sequential()
         for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
             model.add_module(str(idx), combo(in_ftr, out_ftr))
-        model.add_module(str(idx+1), nn.Linear(*self.layer_sizes[-1]))
+        model.add_module(str(idx+1), nn.Linear(*self.layer_sizes[-1])) # type:ignore
         return model
     
     @property
@@ -249,21 +250,21 @@ class MLP(nn.Module):
 
 class SNMLP(MLP):
     def __init__(self, in_features: int, out_features: int, layer_width: list, combo=layers.SNLinearCombo):
-        super().__init__(in_features, out_features, layer_width, combo)
+        super().__init__(in_features, out_features, layer_width, combo) # type: ignore
     
     def _build_model(self, combo):
         model = nn.Sequential()
         for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
             model.add_module(str(idx), combo(in_ftr, out_ftr))
-        model.add_module(str(idx+1), spectral_norm(nn.Linear(*self.layer_sizes[-1])))
+        model.add_module(str(idx+1), spectral_norm(nn.Linear(*self.layer_sizes[-1]))) # type:ignore
         return model
         
 class SIREN(MLP):
     def __init__(
         self, in_features: int, out_features:int, layer_width: list, omega = 30
         ):
-        super().__init__(in_features, out_features, layer_width, layers.SIRENCombo)
-        self.model[0].reset_parameters(omega)
+        super().__init__(in_features, out_features, layer_width, layers.SIRENCombo) # type: ignore
+        self.model[0].reset_parameters(omega) # type: ignore
 
 class FiLMSIREN(MLP):
     def __init__(
@@ -275,14 +276,14 @@ class FiLMSIREN(MLP):
         self.w_dim = w_dim
         self.layer_width = list(layer_width)
         self.model = self._build_model(layers.FiLMSIRENBlock)
-        self.model[0].reset_parameters(omega)
+        self.model[0].reset_parameters(omega) # type:ignore
     
     def _build_model(self, combo):
         model = nn.Sequential()
         for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
             model.add_module(str(idx), combo(in_ftr, out_ftr, self.w_dim))
-        model.add_module(str(idx+1), layers.FirstElement())
-        model.add_module(str(idx+2), nn.Linear(*self.layer_sizes[-1]))
+        model.add_module(str(idx+1), layers.FirstElement()) # type:ignore
+        model.add_module(str(idx+2), nn.Linear(*self.layer_sizes[-1])) # type:ignore
         return model
     
     def forward(self, input, w):
@@ -293,7 +294,7 @@ class DenseMLP(MLP):
         self, in_features: int, out_features:int, layer_width: list, 
         combo = layers.DenseLinearCombo
         ):
-        super().__init__(in_features, out_features, layer_width, combo)
+        super().__init__(in_features, out_features, layer_width, combo) # type:ignore
         
     @property
     def layer_sizes(self):
@@ -305,7 +306,7 @@ class DenseMLP(MLP):
         model = nn.Sequential()
         for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
             model.add_module(str(idx), combo(in_ftr, out_ftr))
-        model.add_module(str(idx+1), layers.DenseLinear(*self.layer_sizes[-1]))
+        model.add_module(str(idx+1), layers.DenseLinear(*self.layer_sizes[-1])) # type:ignore
         return model
 
     def forward(self, input):
@@ -477,7 +478,7 @@ class LineGenerator(nn.Module):
     def __init__(self, N, basis, nets, nett, mask):
         super().__init__()
         self.basis = basis
-        self.flows = nn.ModuleList([flows._RealNVP(nets, nett, mask) for i in range(N)])
+        self.flows = nn.ModuleList([_RealNVP(nets, nett, mask) for i in range(N)])
         self.softmax = torch.nn.Softmax(dim=-1)
         # self.mean, self.std = 2, 4 
         self.mean, self.std = nn.Parameter(torch.tensor(0.)), nn.Parameter(torch.tensor(1.))
