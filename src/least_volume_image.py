@@ -49,7 +49,7 @@ def read_configs(name):
         configs = json.load(f)
     return configs
 
-def load_dataset(name, size=(256, 256), device='cpu'):
+def load_dataset(name, size=(128, 128), device='cpu'):
     if name == 'sythetic':
         dataset = ImageToyDataset('../data/synthetic/images_30k.npy', size=size, device=device)
     elif name == 'mnist':
@@ -60,9 +60,7 @@ def load_dataset(name, size=(256, 256), device='cpu'):
         raise NotImplementedError('Dataset not supported.')
     return dataset
 
-def main(name, ae_name, epochs=50000, batch=100, device='cpu', eps=0):
-    lam = 1e-3
-
+def main(name, ae_name, epochs=50000, batch=100, lam=1e-3, device='cpu', eps=0):
     dataset = load_dataset(name, device=device)
     dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     configs = read_configs(name)
@@ -82,7 +80,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
     parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
+    parser.add_argument('-l', '--lam', type=float, default=1e-4, help='weight for least volume')
     parser.add_argument('--eps', type=float, default=0, help='covergence threshold')
     args = parser.parse_args()
 
-    main(args.dataset, args.name, args.epochs, args.batch, args.device, args.eps)
+    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.device, args.eps)

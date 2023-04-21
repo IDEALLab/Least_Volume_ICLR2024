@@ -86,7 +86,7 @@ class DynamicPruningAE_v2(DynamicPruningAE):
     """This version requires only r_t threshold"""
     @torch.no_grad()
     def _prune(self):
-        n = self.configs['encoder']['in_features']
+        n = self.configs['data_dim']
         sup = self._zstd_[~self._p].min() # type:ignore
         if torch.sqrt(self._rec_) + sup / sqrt(n) < self._r_t: # type:ignore
             p_idx = self._zstd_ == sup

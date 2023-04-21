@@ -51,7 +51,10 @@ class ImageToyDataset(Dataset):
 class MNISTImages(Dataset):
     def __init__(self, device='cpu') -> None: # h x w
         super().__init__()
-        self.images = MNIST('../data/mnist/', train=True, download=True)
+        self.images = MNIST(
+            '../data/mnist/', train=True, download=True, 
+            transform=torchvision.transforms.ToTensor()
+            ) # normalized to [0, 1]
         self.device = device
 
     def __len__(self):
@@ -64,7 +67,11 @@ class MNISTImages(Dataset):
 class CIFAR10Images(Dataset):
     def __init__(self, device='cpu') -> None: # h x w
         super().__init__()
-        self.images = CIFAR10('../data/cifar10/', train=True, download=True)
+        self.images = CIFAR10(
+            '../data/cifar10/', train=True, download=True, 
+            transform=torchvision.transforms.ToTensor()
+            )
+        print(self.images[0])
         self.device = device
 
     def __len__(self):
