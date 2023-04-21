@@ -48,6 +48,7 @@ ae_dict = {
     'l1': L1AE,
     'l2': L2AE,
     'lasso': LassoAE,
+    'dp': DynamicPruningAE_v2,
     'non': AutoEncoder
 }
 
@@ -67,6 +68,9 @@ def generate_configs(data_dim, width, name, lr=1e-4):
         }
     configs['optimizer'] = {'lr': lr}
     configs['name'] = name
+    configs['data_dim'] = configs['encoder']['in_features']
+    configs['z_t'] = 1e-2
+    configs['r_t'] = 1e-2
     return configs
 
 def read_dataset(latent_dim, data_dim, i, device='cpu'):
