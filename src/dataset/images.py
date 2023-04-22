@@ -71,7 +71,6 @@ class CIFAR10Images(Dataset):
             '../data/cifar10/', train=True, download=True, 
             transform=torchvision.transforms.ToTensor()
             )
-        print(self.images[0])
         self.device = device
 
     def __len__(self):

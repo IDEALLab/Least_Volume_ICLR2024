@@ -26,6 +26,8 @@ class Experiment:
             dataloader=dataloader,
             epochs=epochs, # maybe convergence criterion is better
             tb_writer=self.make_writer(save_dir),
+            save_dir=save_dir, 
+            save_iter_list=list(np.linspace(epochs//5, epochs, 5, dtype=int) - 1),
             eps=eps if eps > 0 else None
             )
         self.save_result(epoch if epoch is not None else epochs, save_dir)
@@ -60,7 +62,7 @@ def load_dataset(name, size=(128, 128), device='cpu'):
         raise NotImplementedError('Dataset not supported.')
     return dataset
 
-def main(name, ae_name, epochs=50000, batch=100, lam=1e-3, device='cpu', eps=0):
+def main(name, ae_name, epochs=10000, batch=100, lam=1e-3, device='cpu', eps=0):
     dataset = load_dataset(name, device=device)
     dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     configs = read_configs(name)
@@ -69,7 +71,8 @@ def main(name, ae_name, epochs=50000, batch=100, lam=1e-3, device='cpu', eps=0):
     if ae_name == 'dp':
         experiment = Experiment(configs, DCDiscriminator, TrueSNDCGenerator, Adam, DynamicPruningAE_v2, device=device) # SNMLP for spectral normalization
     else:
-        experiment = Experiment(configs, DCDiscriminator, DCGenerator, Adam, AutoEncoder, device=device)
+        configs['name'] = 'non'
+        experiment = Experiment(configs, DCDiscriminator, TrueSNDCGenerator, Adam, AutoEncoder, device=device)
     experiment.run(dataloader=dataloader, epochs=epochs, lam=lam, save_dir=save_dir, eps=eps) # epochs to be modified
 
 
