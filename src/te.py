@@ -85,17 +85,16 @@ def create_savedir(l, d, i):
     return dir
 
 def main_mp(ae_name, i, epochs=10000, batch=100, device='cpu', eps=0):
-    ll = [1, 2, 4, 8, 16, 32][:4]
-    dd = [2, 4, 8, 16, 32]
-    lams = 10 ** np.linspace(-6, 0, 7) # change to [0] for 'non'
-    ww = [[32]*4, [64]*4, [128]*4, [256]*4, [512]*4, [1024]*4][:4]
-    recs = np.load('../data/toy_new/recs.npy')
-    for j, (l, width) in enumerate(zip(ll, ww)):
-        for k, d in enumerate(dd):
+    ll = [8] #[1, 2, 4, 8, 16, 32][:4]
+    dd = [32] #[2, 4, 8, 16, 32]
+    lams = [0] #10 ** np.linspace(-6, 0, 7) # change to [0] for 'non'
+    ww = [[256]*4] #[[32]*4, [64]*4, [128]*4, [256]*4, [512]*4, [1024]*4][:4]
+
+    for l, width in zip(ll, ww):
+        for d in dd:
             dataset = read_dataset(l, d*l, i, device=device)
             dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
             configs = generate_configs(d*l, width, ae_name)
-            configs['r_t'] = recs[j, k, i] * 3
             save_dir = create_savedir(l, d*l, i)
 
             experiment = Experiment(configs, MLP, SNMLP, Adam, ae_dict[ae_name], device=device) # SNMLP for spectral normalization
@@ -112,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument('--eps', type=float, default=0, help='covergence threshold')
     args = parser.parse_args()
 
-    # main(args.ae_name, args.epochs, args.batch, args.device)
-    for i in range(args.folds):
-        p = mp.Process(target=main_mp, args=(args.ae_name, i, args.epochs, args.batch, args.device, args.eps))
-        p.start()
+    main_mp(args.ae_name, 2, args.epochs, args.batch, args.device)
+    # for i in range(args.folds):
+    #     p = mp.Process(target=main_mp, args=(args.ae_name, i, args.epochs, args.batch, args.device, args.eps))
+    #     p.start()
