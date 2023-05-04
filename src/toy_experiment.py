@@ -69,6 +69,7 @@ def generate_configs(data_dim, width, name, lr=1e-4):
     configs['optimizer'] = {'lr': lr}
     configs['name'] = name
     configs['data_dim'] = configs['encoder']['in_features']
+    configs['beta'] = 0.9
     configs['z_t'] = 1e-2
     configs['r_t'] = 1e-2
     return configs

@@ -1,0 +1,26 @@
+{
+    "encoder": {
+        "in_channels": 3,
+        "in_width": 64,
+        "in_height": 64,
+        "n_critics": 500,
+        "conv_channels": [32, 32, 64, 64, 128],
+        "crt_layers": [1024, 512]
+    },
+    "decoder": {
+        "in_features": 500, 
+        "out_width": 64, 
+        "out_height": 64,
+        "channels": [128, 64, 64, 32, 32, 3],
+        "dense_layers": [512, 1024]
+    },
+    "optimizer": {
+        "lr": 1e-4, 
+        "betas": [0.5, 0.99]
+    },
+    "name": "dp_cifar10",
+    "data_dim": 3072,
+    "beta": 0.9,
+    "z_t": 3e-5, 
+    "r_t": 4e-3
+}

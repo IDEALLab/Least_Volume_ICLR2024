@@ -18,5 +18,9 @@
         "lr": 1e-4, 
         "betas": [0.9, 0.99]
     },
-    "name": "non_cifar10"
+    "name": "dp_cifar10",
+    "data_dim": 3072,
+    "beta": 0.8,
+    "z_t": 2e-6, 
+    "r_t": 2
 }

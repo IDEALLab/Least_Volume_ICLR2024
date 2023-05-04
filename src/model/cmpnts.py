@@ -136,7 +136,17 @@ class TrueSNDCGenerator(DCGenerator):
                 ), in_shapes[-1])
             )
         return deconv
-        
+
+class TrueSNDCGeneratorSig(TrueSNDCGenerator):
+    def forward(self, input):
+        x = super().forward(input)
+        return F.sigmoid(x)
+
+class DCGeneratorSig(nn.Module):
+    def forward(self, input):
+        x = super().forward(input)
+        return F.sigmoid(x)
+
 class SADCGenerator(DCGenerator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -202,7 +212,7 @@ class DCDiscriminator(Conv2DNetwork):
         ):
         super().__init__(in_channels, in_width, in_height, conv_channels=conv_channels)
         self.n_critics = n_critics
-        self.critics = MLP(self.m_features, n_critics, crt_layers)
+        self.critics = MLP(self.m_features, n_critics, crt_layers) if crt_layers is not None else nn.Identity()
 
     def forward(self, input):
         x = super().forward(input)
@@ -238,9 +248,11 @@ class MLP(nn.Module):
 
     def _build_model(self, combo):
         model = nn.Sequential()
-        for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
+        idx = 0
+        for in_ftr, out_ftr in self.layer_sizes[:-1]:
             model.add_module(str(idx), combo(in_ftr, out_ftr))
-        model.add_module(str(idx+1), nn.Linear(*self.layer_sizes[-1])) # type:ignore
+            idx += 1
+        model.add_module(str(idx), nn.Linear(*self.layer_sizes[-1]))
         return model
     
     @property
@@ -254,9 +266,11 @@ class SNMLP(MLP):
     
     def _build_model(self, combo):
         model = nn.Sequential()
-        for idx, (in_ftr, out_ftr) in enumerate(self.layer_sizes[:-1]):
+        idx = 0
+        for in_ftr, out_ftr in self.layer_sizes[:-1]:
             model.add_module(str(idx), combo(in_ftr, out_ftr))
-        model.add_module(str(idx+1), spectral_norm(nn.Linear(*self.layer_sizes[-1]))) # type:ignore
+            idx += 1
+        model.add_module(str(idx), spectral_norm(nn.Linear(*self.layer_sizes[-1]))) # type:ignore
         return model
         
 class SIREN(MLP):

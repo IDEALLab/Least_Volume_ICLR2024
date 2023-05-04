@@ -112,6 +112,10 @@ class AutoEncoder(_AutoEncoder):
             except:
                 pass
 
+class BCEAutoencoder(AutoEncoder):
+    def loss_rec(self, x, x_hat):
+        return F.binary_cross_entropy(x_hat, x)
+
 class CondensedAE(AutoEncoder):
     def __init__(self, configs: dict, Encoder: object, Decoder: object, Optimizer: object, weights=[1., 0.001]):
         super().__init__(configs, Encoder, Decoder, Optimizer, weights)

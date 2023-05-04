@@ -5,7 +5,7 @@ import torchvision
 import torchvision.transforms as tt
 import numpy as np
 from torch.utils.data import Dataset
-from torchvision.datasets import MNIST, CIFAR10
+from torchvision.datasets import MNIST, CIFAR10, CelebA
 
 def generate_synthetic_dataset(
             img_dir: str, N: int, 
@@ -49,12 +49,13 @@ class ImageToyDataset(Dataset):
     
 
 class MNISTImages(Dataset):
-    def __init__(self, device='cpu') -> None: # h x w
+    def __init__(self, train=True, device='cpu') -> None: # h x w
         super().__init__()
         self.images = MNIST(
-            '../data/mnist/', train=True, download=True, 
-            transform=torchvision.transforms.ToTensor()
-            ) # normalized to [0, 1]
+            '../data/mnist/', train=train, download=True, 
+            transform=torchvision.transforms.Compose(
+                [torchvision.transforms.Resize(32), torchvision.transforms.ToTensor()])
+        )
         self.device = device
 
     def __len__(self):
@@ -63,12 +64,11 @@ class MNISTImages(Dataset):
     def __getitem__(self, idx):
         return self.images[idx][0].to(self.device)
     
-    
 class CIFAR10Images(Dataset):
-    def __init__(self, device='cpu') -> None: # h x w
+    def __init__(self, train=True, device='cpu') -> None: # h x w
         super().__init__()
         self.images = CIFAR10(
-            '../data/cifar10/', train=True, download=True, 
+            '../data/cifar10/', train=train, download=True, 
             transform=torchvision.transforms.ToTensor()
             )
         self.device = device
@@ -78,3 +78,20 @@ class CIFAR10Images(Dataset):
 
     def __getitem__(self, idx):
         return self.images[idx][0].to(self.device)
+    
+# class CelebAImages(Dataset):
+#     def __init__(self, split='train', device='cpu') -> None: # h x w
+#         super().__init__()
+#         self.images = CelebA(
+#             '../data/celeba/', split='split', download=True, 
+#             transform=nn.Sequential(
+#             torchvision.transforms.ToTensor(),
+#             torchvision.
+#             )
+#         self.device = device
+
+#     def __len__(self):
+#         return len(self.images)
+
+#     def __getitem__(self, idx):
+#         return self.images[idx][0].to(self.device)
