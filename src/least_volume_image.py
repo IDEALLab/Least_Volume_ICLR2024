@@ -52,47 +52,59 @@ def read_configs(name, src='./configs/'):
         configs = json.load(f)
     return configs
 
-def load_dataset(name, size=(128, 128), device='cpu'):
-    if 'sythetic' in name:
-        dataset = ImageToyDataset('../data/synthetic/images_30k.npy', size=size, device=device)
-        id = 'sythetic'
+def load_dataset(name, train=True, device='cpu'):
+    if 'syn' in name:
+        dataset = ImageToyDataset('../data/synthetic/images_30k.npy', size=(32, 32), device=device)
+        id = 'syn'
     elif 'mnist' in name:
-        dataset = MNISTImages(device=device)
+        dataset = MNISTImages(train=train, device=device)
         id = 'mnist'
     elif 'cifar10' in name:
-        dataset = CIFAR10Images(device=device)
+        dataset = CIFAR10Images(train=train, device=device)
         id = 'cifar10'
     else:
         raise NotImplementedError('Dataset not supported.')
     return dataset, id
 
-def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device='cpu', save_num=10, eps=0, comment=''):
+def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device='cpu', save_num=10, nolip=False, eps=1, comment=''):
     dataset, id = load_dataset(name, device=device)
     dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     configs = read_configs(name)
+    if nolip: comment = comment + '_nolip'
+    if ae_name == 'vol': comment = '_e{}'.format(eps) + comment
     save_dir = '../saves/image/{}/{}_{}{}/'.format(id, ae_name, lam, comment)
     os.makedirs(save_dir, exist_ok=True)
     copyfile('./configs/{}.json'.format(name), os.path.join(save_dir, '{}.json'.format(name)))
 
-    Decoder = TrueSNDCGeneratorSig if sigmoid else TrueSNDCGenerator
+    Decoder = (TrueSNDCGeneratorSig if sigmoid else TrueSNDCGenerator) if not nolip else (DCGeneratorSig if sigmoid else DCGenerator)
+
     if ae_name == 'dp':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEO, device=device) # SNMLP for spectral normalization
     elif ae_name == 'dpr':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCE, device=device)
-    elif ae_name == 'dpd':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv2, device=device)
+    elif ae_name == 'vol':
+        configs['eps'] = eps
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, VolumeAE_BCE, device=device)
+    elif ae_name == 'vol_new':
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv2, device=device) # DynamicPruningAE_BCEv2
+    elif ae_name == 'l1_new':
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv3, device=device) # DynamicPruningAE_BCEv2
     elif ae_name == 'l1':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE, device=device) # need sigmoid
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE, device=device)
+    elif ae_name == 'l1v':
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCEv, device=device) 
+    elif ae_name == 'l1dp':
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE_dp, device=device)
     elif ae_name == 'lasso':
-        experiment = Experiment(configs, DCDiscriminator, DCGeneratorSig, Adam, LassoAE_BCE, device=device) # need sigmoid
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, LassoAE_BCE, device=device) 
     elif ae_name == 'vani':
         experiment = Experiment(configs, DCDiscriminator, DCGeneratorSig, Adam, BCEAutoencoder, device=device)
-    elif ae_name == 'bce_non':
+    elif ae_name == 'bce':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, BCEAutoencoder, device=device)
     else:
         configs['name'] = 'non'
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, AutoEncoder, device=device)
-    experiment.run(dataloader=dataloader, epochs=epochs, lam=lam, save_dir=save_dir, save_num=save_num, eps=eps) # epochs to be modified
+    experiment.run(dataloader=dataloader, epochs=epochs, lam=lam, save_dir=save_dir, save_num=save_num) # epochs to be modified
 
 
 if __name__ == '__main__':
@@ -104,9 +116,10 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
     parser.add_argument('-l', '--lam', type=float, default=1e-4, help='weight for least volume')
     parser.add_argument('-s', '--sig', type=bool, default=True, help='sigmoid for decoder')
-    parser.add_argument('--eps', type=float, default=0, help='covergence threshold')
+    parser.add_argument('--nolip', action='store_true', help='no Lipschitz regularization')
+    parser.add_argument('--eps', type=float, default=1, help='covergence threshold')
     parser.add_argument('--num', type=int, default=10, help='number of saves')
     parser.add_argument('--com', type=str, default='', help='comment')
     args = parser.parse_args()
 
-    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.eps, args.com)
+    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.nolip, args.eps, args.com)

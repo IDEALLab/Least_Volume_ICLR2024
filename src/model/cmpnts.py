@@ -142,7 +142,7 @@ class TrueSNDCGeneratorSig(TrueSNDCGenerator):
         x = super().forward(input)
         return F.sigmoid(x)
 
-class DCGeneratorSig(nn.Module):
+class DCGeneratorSig(DCGenerator):
     def forward(self, input):
         x = super().forward(input)
         return F.sigmoid(x)

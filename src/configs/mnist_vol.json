@@ -18,5 +18,6 @@
         "lr": 1e-4, 
         "betas": [0.9, 0.99]
     },
-    "name": "mnist"
+    "name": "vol_mnist",
+    "eps": 1
 }

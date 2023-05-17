@@ -1,22 +1,22 @@
 {
     "encoder": {
-        "in_channels": 1,
+        "in_channels": 3,
         "in_width": 32,
         "in_height": 32,
-        "n_critics": 128,
-        "conv_channels": [32, 64, 128, 256],
+        "n_critics": 2048,
+        "conv_channels": [128, 256, 512, 1024],
         "crt_layers": []
     },
     "decoder": {
-        "in_features": 128, 
+        "in_features": 2048, 
         "out_width": 32, 
         "out_height": 32,
-        "channels": [128, 64, 32, 1],
+        "channels": [512, 256, 128, 3],
         "dense_layers": []
     },
     "optimizer": {
         "lr": 1e-4, 
         "betas": [0.9, 0.99]
     },
-    "name": "mnist"
+    "name": "l1_cifar10"
 }

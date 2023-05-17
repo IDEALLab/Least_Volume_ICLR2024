@@ -29,9 +29,31 @@ class _SparseAE(AutoEncoder):
             except:
                 pass
 
-class VolumeAE(_SparseAE):
+class SparseAE(_SparseAE):
+    def loss(self, x, **kwargs):
+        z = self.encode(x)
+        x_hat = self.decode(z)
+        return torch.stack([self.loss_rec(x, x_hat), self.loss_spar(z)])
+
     def loss_spar(self, z):
-        return torch.exp(torch.log(z.std(0)+1e-2).mean())
+        raise NotImplementedError
+
+class SparseAE_BCE(SparseAE):
+    def loss_rec(self, x, x_hat):
+        return F.binary_cross_entropy(x_hat, x)
+
+class VolumeAE(_SparseAE):
+    def __init__(self, configs: dict, Encoder, Decoder, Optimizer, weights=1):
+        super().__init__(configs, Encoder, Decoder, Optimizer, weights)
+        self.eps = configs['eps']
+
+    def loss_spar(self, z):
+        return torch.exp(torch.log(z.std(0) + self.eps).mean())
+
+class VolumeAE_BCE(VolumeAE):
+    def loss_rec(self, x, x_hat):
+        return F.binary_cross_entropy(x_hat, x)
+
 
 class DynamicPruningAE(_SparseAE):
     def __init__(self, configs: dict, Encoder, Decoder, Optimizer, weights=[1., 1e-3]):
@@ -169,25 +191,69 @@ class DynamicPruningAE_BCEO(DynamicPruningAE_v2):
             self._zstd_ = z.std(0)
             self._zmean_ = z.mean(0)
 
-class DynamicPruningAE_BCEv2(DynamicPruningAE_v4):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
+class DynamicPruningAE_BCEv2(DynamicPruningAE_BCEO):
+    def loss_spar(self, z):
+        n = self.configs['data_dim']
+        if self._zstd_ is not None:
+            idx = torch.sqrt(self._rec_) * sqrt(n) + self._zstd_ < self._r_t
+            if idx.sum() > 0:
+                return torch.exp(torch.log(z.std(0)[~idx]).mean()) \
+                        + 3 * z.std(0)[idx].mean()
+            else:
+                return torch.exp(torch.log(z.std(0)).mean())
+        else:
+            return torch.exp(torch.log(z.std(0)).mean())
+    
+    def encode(self, x):
+        return self.encoder(x)
+    
+    def decode(self, z):
+        return self.decoder(z)
+
+class DynamicPruningAE_BCEv3(DynamicPruningAE_BCEO):
+    def loss_spar(self, z):
+        n = self.configs['data_dim']
+        vol = 0
+        if self._zstd_ is not None:
+            idx = torch.sqrt(self._rec_) * sqrt(n) + self._zstd_ > self._r_t
+            if idx.sum() > 0:
+                vol = torch.exp(torch.log(z.std(0)[idx]).mean())
+        return z.std(0).mean() + vol
+    
+    def encode(self, x):
+        return self.encoder(x)
+    
+    def decode(self, z):
+        return self.decoder(z)
+
 
 class L1AE(_SparseAE):
     def loss_spar(self, z):
-        return z.std(0).norm(p=1)
+        return z.std(0).norm(p=1) / z.size(1)
+
+class L1AEv(_SparseAE):
+    def loss_spar(self, z):
+        return z.var(0).norm(p=1) / z.size(1)
 
 class L1AE_BCE(L1AE):
     def loss_rec(self, x, x_hat):
         return F.binary_cross_entropy(x_hat, x)
 
+class L1AE_BCEv(L1AEv):
+    def loss_rec(self, x, x_hat):
+        return F.binary_cross_entropy(x_hat, x)
+    
+class L1AE_BCE_dp(DynamicPruningAE_BCEO):
+    def loss_spar(self, z):
+        return z.std(0).norm(p=1) / z.size(1)
+
 class L2AE(_SparseAE):
     def loss_spar(self, z):
-        return z.std(0).norm(p=1)
+        return z.std(0).norm(p=2) / z.size(1)
 
 class LassoAE(_SparseAE):
     def loss_spar(self, z):
-        return z.norm(dim=-1, p=1).mean()
+        return z.abs().mean()
 
 class LassoAE_BCE(LassoAE):
     def loss_rec(self, x, x_hat):

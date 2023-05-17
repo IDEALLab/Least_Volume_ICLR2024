@@ -1,22 +1,22 @@
 {
     "encoder": {
-        "in_channels": 1,
+        "in_channels": 3,
         "in_width": 32,
         "in_height": 32,
-        "n_critics": 128,
+        "n_critics": 50,
         "conv_channels": [32, 64, 128, 256],
         "crt_layers": []
     },
     "decoder": {
-        "in_features": 128, 
+        "in_features": 50, 
         "out_width": 32, 
         "out_height": 32,
-        "channels": [128, 64, 32, 1],
+        "channels": [256, 128, 64, 32, 3],
         "dense_layers": []
     },
     "optimizer": {
         "lr": 1e-4, 
         "betas": [0.9, 0.99]
     },
-    "name": "mnist"
+    "name": "syn"
 }

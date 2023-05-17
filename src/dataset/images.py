@@ -6,26 +6,29 @@ import torchvision.transforms as tt
 import numpy as np
 from torch.utils.data import Dataset
 from torchvision.datasets import MNIST, CIFAR10, CelebA
+from tqdm import trange
 
 def generate_synthetic_dataset(
             img_dir: str, N: int, 
             degrees=90, 
             translate=(0.2, 0.2), 
-            scale=(0.1, 0.4), 
-            shear=30, 
-            saturation=(0.5, 1), 
-            hue=0.5):
-        image = torchvision.io.read_image(img_dir)
+            scale=(0.2, 0.5), 
+            brightness=(0.3, 1), 
+            hue=(0, 0.5)
+            ):
+        img = torchvision.io.read_image(img_dir)
+        img = torch.cat([img, torch.zeros_like(img), torch.zeros_like(img)])
         tf = nn.Sequential(
-            tt.RandomAffine(degrees=degrees, translate=translate, scale=scale, shear=shear),
-            tt.ColorJitter(saturation=saturation, hue=hue)
+            tt.RandomAffine(degrees=degrees, translate=translate, scale=scale),
+            tt.ColorJitter(hue=hue, brightness=brightness),
+            tt.Resize(32)
         )
-        imgs = [tf(image) for _ in range(N)]
+        imgs = [tf(img) for _ in trange(N)]
         return torch.stack(imgs)
 
 
 class ImageToyDataset(Dataset):
-    def __init__(self, npy_dir: str, size=(512, 512), device='cpu') -> None: # h x w
+    def __init__(self, npy_dir: str, size=(32, 32), device='cpu') -> None: # h x w
         super().__init__()
         self.images = torch.as_tensor(np.load(npy_dir), dtype=torch.float)
         self.device = device
