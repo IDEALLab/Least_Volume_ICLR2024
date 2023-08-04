@@ -52,27 +52,17 @@ class ImageToyDataset(Dataset):
     
 
 class MNISTImages(Dataset):
-    def __init__(self, train=True, device='cpu') -> None: # h x w
+    def __init__(self, train=True, device='cpu', preload=True) -> None: # h x w
         super().__init__()
-        self.images = MNIST(
-            '../data/mnist/', train=train, download=True, 
-            transform=torchvision.transforms.Compose(
-                [torchvision.transforms.Resize(32), torchvision.transforms.ToTensor()])
-        )
-        self.device = device
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-        return self.images[idx][0].to(self.device)
-    
-class CIFAR10Images(Dataset):
-    def __init__(self, train=True, device='cpu') -> None: # h x w
-        super().__init__()
-        self.images = CIFAR10(
-            '../data/cifar10/', train=train, download=True, 
-            transform=torchvision.transforms.ToTensor()
+        self.preload = preload
+        if self.preload:
+            self.images = torch.load('../data/mnist/mnist_trans.pt') \
+                if train else torch.load('../data/mnist/mnist_trans_test.pt')
+        else:
+            self.images = MNIST(
+                '../data/mnist/', train=train, download=True, 
+                transform=torchvision.transforms.Compose(
+                    [torchvision.transforms.Resize(32), torchvision.transforms.ToTensor()])
             )
         self.device = device
 
@@ -80,21 +70,61 @@ class CIFAR10Images(Dataset):
         return len(self.images)
 
     def __getitem__(self, idx):
-        return self.images[idx][0].to(self.device)
+        if self.preload:
+            return self.images[idx].to(self.device)
+        else:
+            return self.images[idx][0].to(self.device)
     
-# class CelebAImages(Dataset):
-#     def __init__(self, split='train', device='cpu') -> None: # h x w
-#         super().__init__()
-#         self.images = CelebA(
-#             '../data/celeba/', split='split', download=True, 
-#             transform=nn.Sequential(
-#             torchvision.transforms.ToTensor(),
-#             torchvision.
-#             )
-#         self.device = device
+class CIFAR10Images(Dataset):
+    def __init__(self, train=True, device='cpu', preload=True) -> None: # h x w
+        super().__init__()
+        self.preload = preload
+        if self.preload:
+            self.images = torch.load('../data/cifar10/cifar10_trans.pt') \
+                if train else torch.load('../data/cifar10/cifar10_trans_test.pt')
+        else:
+            self.images = CIFAR10(
+            '../data/cifar10/', train=train, download=True, 
+            transform=torchvision.transforms.ToTensor()
+            )
+        
+        self.device = device
 
-#     def __len__(self):
-#         return len(self.images)
+    def __len__(self):
+        return len(self.images)
 
-#     def __getitem__(self, idx):
-#         return self.images[idx][0].to(self.device)
+    def __getitem__(self, idx):
+        if self.preload:
+            return self.images[idx].to(self.device)
+        else:
+            return self.images[idx][0].to(self.device)
+
+
+class CelebAImages(Dataset):
+    def __init__(self, train=True, device='cpu', preload=True) -> None: # h x w
+        super().__init__()
+        self.preload = preload
+        if self.preload:
+            self.images = torch.load('../data/celeba/celeb_trans.pt') \
+                if train else torch.load('../data/celeba/celeb_trans_test.pt')
+        else:
+            self.images = CelebA(
+            '../data/celeba/', split='train' if train else 'test', download=True, 
+            transform=torchvision.transforms.Compose(
+                [   
+                    torchvision.transforms.CenterCrop(150),
+                    torchvision.transforms.Resize(64),
+                    torchvision.transforms.ToTensor()
+                ]
+            )
+        )
+        self.device = device
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        if self.preload:
+            return self.images[idx].to(self.device)
+        else:
+            return self.images[idx][0].to(self.device)

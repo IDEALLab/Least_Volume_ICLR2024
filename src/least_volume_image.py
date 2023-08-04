@@ -6,7 +6,7 @@ import argparse
 from model.autoencoder import AutoEncoder, BCEAutoencoder
 from model.sparsity import *
 from model.cmpnts import DCDiscriminator, TrueSNDCGenerator, DCGenerator, DCGeneratorSig, TrueSNDCGeneratorSig
-from dataset.images import ImageToyDataset, MNISTImages, CIFAR10Images
+from dataset.images import *
 from dataset.toy import TensorDataset, DataLoader
 from torch.utils.tensorboard.writer import SummaryWriter
 import torch.multiprocessing as mp
@@ -62,6 +62,9 @@ def load_dataset(name, train=True, device='cpu'):
     elif 'cifar10' in name:
         dataset = CIFAR10Images(train=train, device=device)
         id = 'cifar10'
+    elif 'celeba' in name:
+        dataset = CelebAImages(train=train, device=device)
+        id = 'celeba'
     else:
         raise NotImplementedError('Dataset not supported.')
     return dataset, id
@@ -72,7 +75,7 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
     configs = read_configs(name)
     if nolip: comment = comment + '_nolip'
     if ae_name == 'vol': comment = '_e{}'.format(eps) + comment
-    save_dir = '../saves/image/{}/{}_{}{}/'.format(id, ae_name, lam, comment)
+    save_dir = '../saves/image/{}/{}/{}_{}{}/'.format(id, ae_name, ae_name, lam, comment)
     os.makedirs(save_dir, exist_ok=True)
     copyfile('./configs/{}.json'.format(name), os.path.join(save_dir, '{}.json'.format(name)))
 
@@ -80,25 +83,23 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
 
     if ae_name == 'dp':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEO, device=device) # SNMLP for spectral normalization
-    elif ae_name == 'dpr':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCE, device=device)
+    # elif ae_name == 'dpr':
+    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCE, device=device)
     elif ae_name == 'vol':
         configs['eps'] = eps
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, VolumeAE_BCE, device=device)
-    elif ae_name == 'vol_new':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv2, device=device) # DynamicPruningAE_BCEv2
-    elif ae_name == 'l1_new':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv3, device=device) # DynamicPruningAE_BCEv2
+    # elif ae_name == 'vol_new':
+    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv2, device=device) # DynamicPruningAE_BCEv2
+    # elif ae_name == 'l1_new':
+    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv3, device=device) # DynamicPruningAE_BCEv2
     elif ae_name == 'l1':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE, device=device)
-    elif ae_name == 'l1v':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCEv, device=device) 
-    elif ae_name == 'l1dp':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE_dp, device=device)
+    # elif ae_name == 'l1v':
+    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCEv, device=device) 
+    # elif ae_name == 'l1dp':
+    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE_dp, device=device)
     elif ae_name == 'lasso':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, LassoAE_BCE, device=device) 
-    elif ae_name == 'vani':
-        experiment = Experiment(configs, DCDiscriminator, DCGeneratorSig, Adam, BCEAutoencoder, device=device)
     elif ae_name == 'bce':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, BCEAutoencoder, device=device)
     else:

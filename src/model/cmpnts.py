@@ -272,7 +272,18 @@ class SNMLP(MLP):
             idx += 1
         model.add_module(str(idx), spectral_norm(nn.Linear(*self.layer_sizes[-1]))) # type:ignore
         return model
-        
+    
+class LasagnaMLP(SNMLP):
+    def __init__(self, in_features: int, out_features: int, layer_width: list, combo=layers.SNLinearCombo):
+        super().__init__(in_features, out_features, layer_width, combo) # type: ignore
+        self._log = nn.Parameter(torch.zeros(len(self.model) - 1))
+
+    def forward(self, x):
+        for l, f in zip(self._log, self.model[:-1]):
+            x = f(torch.exp(l) * x)
+        l = - self._log.sum()
+        return self.model[-1](torch.exp(l) * x)
+
 class SIREN(MLP):
     def __init__(
         self, in_features: int, out_features:int, layer_width: list, omega = 30
