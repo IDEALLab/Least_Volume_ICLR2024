@@ -5,7 +5,8 @@
 data/
 # results/
 saves/
-notebook/archive
+*/archive
+.vscode/
 
 # --- Python level git ignore below ---
 
