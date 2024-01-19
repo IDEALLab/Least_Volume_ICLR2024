@@ -69,13 +69,13 @@ def load_dataset(name, train=True, device='cpu'):
         raise NotImplementedError('Dataset not supported.')
     return dataset, id
 
-def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device='cpu', save_num=10, nolip=False, eps=1, comment=''):
+def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device='cpu', save_num=10, nolip=False, eps=1., comment='', cv=0):
     dataset, id = load_dataset(name, device=device)
     dataloader = DataLoader(dataset, batch_size=batch, shuffle=True)
     configs = read_configs(name)
     if nolip: comment = comment + '_nolip'
     if ae_name == 'vol': comment = '_e{}'.format(eps) + comment
-    save_dir = '../saves/image/{}/{}/{}_{}{}/'.format(id, ae_name, ae_name, lam, comment)
+    save_dir = '../saves/image/{}/cv{}/{}/{}_{}{}/'.format(id, cv, ae_name, ae_name, lam, comment)
     os.makedirs(save_dir, exist_ok=True)
     copyfile('./configs/{}.json'.format(name), os.path.join(save_dir, '{}.json'.format(name)))
 
@@ -83,21 +83,13 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
 
     if ae_name == 'dp':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEO, device=device) # SNMLP for spectral normalization
-    # elif ae_name == 'dpr':
-    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCE, device=device)
     elif ae_name == 'vol':
         configs['eps'] = eps
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, VolumeAE_BCE, device=device)
-    # elif ae_name == 'vol_new':
-    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv2, device=device) # DynamicPruningAE_BCEv2
-    # elif ae_name == 'l1_new':
-    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEv3, device=device) # DynamicPruningAE_BCEv2
     elif ae_name == 'l1':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE, device=device)
-    # elif ae_name == 'l1v':
-    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCEv, device=device) 
-    # elif ae_name == 'l1dp':
-    #     experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, L1AE_BCE_dp, device=device)
+    elif ae_name == 'st':
+        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, STAE_BCE, device=device)
     elif ae_name == 'lasso':
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, LassoAE_BCE, device=device) 
     elif ae_name == 'bce':
@@ -121,6 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--eps', type=float, default=1, help='covergence threshold')
     parser.add_argument('--num', type=int, default=10, help='number of saves')
     parser.add_argument('--com', type=str, default='', help='comment')
+    parser.add_argument('--cv', type=str, default=0, help='cv')
     args = parser.parse_args()
 
-    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.nolip, args.eps, args.com)
+    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.nolip, args.eps, args.com, args.cv)

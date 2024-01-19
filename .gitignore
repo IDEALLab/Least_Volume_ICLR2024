@@ -5,7 +5,7 @@
 data/
 # results/
 saves/
-
+notebook/archive
 
 # --- Python level git ignore below ---
 

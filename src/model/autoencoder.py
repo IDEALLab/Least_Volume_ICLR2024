@@ -80,8 +80,8 @@ class _AutoEncoder(nn.Module):
             'misc': kwargs
             }, os.path.join(save_dir, file_name+'.tar'))
 
-    def load(self, checkpoint):
-        ckp = torch.load(checkpoint)
+    def load(self, checkpoint, map_location=None):
+        ckp = torch.load(checkpoint, map_location=map_location)
         self.load_state_dict(ckp['params'])
         self.optim.load_state_dict(ckp['optim'])
         self.configs = ckp['configs']

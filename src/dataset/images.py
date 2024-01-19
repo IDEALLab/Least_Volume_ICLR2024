@@ -105,15 +105,15 @@ class CelebAImages(Dataset):
         super().__init__()
         self.preload = preload
         if self.preload:
-            self.images = torch.load('../data/celeba/celeb_trans.pt') \
-                if train else torch.load('../data/celeba/celeb_trans_test.pt')
+            self.images = torch.load('../data/celeba/celeba_trans.pt') \
+                if train else torch.load('../data/celeba/celeba_trans_test.pt')
         else:
             self.images = CelebA(
             '../data/celeba/', split='train' if train else 'test', download=True, 
             transform=torchvision.transforms.Compose(
                 [   
                     torchvision.transforms.CenterCrop(150),
-                    torchvision.transforms.Resize(64),
+                    torchvision.transforms.Resize(32),
                     torchvision.transforms.ToTensor()
                 ]
             )

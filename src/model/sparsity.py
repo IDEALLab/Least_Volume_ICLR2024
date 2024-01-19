@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from .autoencoder import AutoEncoder
+from .autoencoder import AutoEncoder, BCEAutoencoder
 from math import sqrt
 
 class _SparseAE(AutoEncoder):
@@ -29,19 +29,6 @@ class _SparseAE(AutoEncoder):
             except:
                 pass
 
-class SparseAE(_SparseAE):
-    def loss(self, x, **kwargs):
-        z = self.encode(x)
-        x_hat = self.decode(z)
-        return torch.stack([self.loss_rec(x, x_hat), self.loss_spar(z)])
-
-    def loss_spar(self, z):
-        raise NotImplementedError
-
-class SparseAE_BCE(SparseAE):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
-
 class VolumeAE(_SparseAE):
     def __init__(self, configs: dict, Encoder, Decoder, Optimizer, weights=1):
         super().__init__(configs, Encoder, Decoder, Optimizer, weights)
@@ -50,9 +37,7 @@ class VolumeAE(_SparseAE):
     def loss_spar(self, z):
         return torch.exp(torch.log(z.std(0) + self.eps).mean())
 
-class VolumeAE_BCE(VolumeAE):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
+class VolumeAE_BCE(VolumeAE, BCEAutoencoder): pass
 
 
 class DynamicPruningAE(_SparseAE):
@@ -231,30 +216,26 @@ class L1AE(_SparseAE):
     def loss_spar(self, z):
         return z.std(0).norm(p=1) / z.size(1)
 
+class L1AE_BCE(L1AE, BCEAutoencoder): pass
+
 class L1AEv(_SparseAE):
     def loss_spar(self, z):
         return z.var(0).norm(p=1) / z.size(1)
 
-class L1AE_BCE(L1AE):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
-
-class L1AE_BCEv(L1AEv):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
-    
-class L1AE_BCE_dp(DynamicPruningAE_BCEO):
-    def loss_spar(self, z):
-        return z.std(0).norm(p=1) / z.size(1)
+class L1AE_BCEv(L1AEv, BCEAutoencoder): pass
 
 class L2AE(_SparseAE):
     def loss_spar(self, z):
         return z.std(0).norm(p=2) / z.size(1)
-
+    
 class LassoAE(_SparseAE):
     def loss_spar(self, z):
         return z.abs().mean()
 
-class LassoAE_BCE(LassoAE):
-    def loss_rec(self, x, x_hat):
-        return F.binary_cross_entropy(x_hat, x)
+class LassoAE_BCE(LassoAE, BCEAutoencoder): pass
+
+class STAE(_SparseAE):
+    def loss_spar(self, z):
+        return torch.log(1 + z.pow(2)).mean()
+    
+class STAE_BCE(STAE, BCEAutoencoder): pass
