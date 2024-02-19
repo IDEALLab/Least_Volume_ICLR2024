@@ -62,9 +62,9 @@ def load_dataset(name, train=True, device='cpu'):
     elif 'cifar10' in name:
         dataset = CIFAR10Images(train=train, device=device)
         id = 'cifar10'
-    elif 'celeba' in name:
-        dataset = CelebAImages(train=train, device=device)
-        id = 'celeba'
+    # elif 'celeba' in name:
+    #     dataset = CelebAImages(train=train, device=device)
+    #     id = 'celeba'
     else:
         raise NotImplementedError('Dataset not supported.')
     return dataset, id
