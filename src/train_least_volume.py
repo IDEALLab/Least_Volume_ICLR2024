@@ -100,18 +100,18 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('dataset', help='name of the dataset')
+    parser.add_argument('config', help='name of the config file in /src/configs')
     parser.add_argument('-n', '--name', default='vol', help='name of the autoencoder')
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
     parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
     parser.add_argument('-l', '--lam', type=float, default=1e-4, help='weight for least volume')
-    parser.add_argument('-s', '--sig', type=bool, default=True, help='sigmoid for decoder')
+    parser.add_argument('-s', '--sig', type=bool, default=True, help='sigmoid final activation on decoder')
     parser.add_argument('--nolip', action='store_true', help='no Lipschitz regularization')
     parser.add_argument('--eps', type=float, default=1, help='offset eta in the paper')
     parser.add_argument('--num', type=int, default=10, help='number of saves')
     parser.add_argument('--com', type=str, default='', help='comment')
-    parser.add_argument('--cv', type=str, default=0, help='cv')
+    parser.add_argument('--cv', type=str, default=0, help='cross validation index')
     args = parser.parse_args()
 
-    main(args.dataset, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.nolip, args.eps, args.com, args.cv)
+    main(args.config, args.name, args.epochs, args.batch, args.lam, args.sig, args.device, args.num, args.nolip, args.eps, args.com, args.cv)

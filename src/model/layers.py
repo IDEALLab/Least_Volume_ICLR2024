@@ -20,9 +20,6 @@ class LinearCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             nn.Linear(in_features, out_features),
-            # nn.BatchNorm1d(out_features),
-            # nn.ELU()
-            # nn.Softplus()
             nn.LeakyReLU(alpha)
         )
 
@@ -33,9 +30,6 @@ class SNLinearCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             spectral_norm(nn.Linear(in_features, out_features)),
-            # nn.BatchNorm1d(out_features),
-            # nn.ELU()
-            # nn.Softplus()
             nn.LeakyReLU(alpha)
         )
         
@@ -49,7 +43,6 @@ class Deconv1DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             nn.ConvTranspose1d(in_channels, out_channels, kernel_size, stride, padding),
-            nn.BatchNorm1d(out_channels),
             nn.LeakyReLU(alpha)
         )
 
@@ -63,7 +56,6 @@ class Deconv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding),
-            # nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(alpha)
         )
 
@@ -75,7 +67,6 @@ class SNDeconv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             spectral_norm(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)),
-            # nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(alpha)
         )
 
@@ -87,7 +78,6 @@ class TrueSNDeconv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             spectral_norm_conv(nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding), in_shape),
-            # nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(alpha)
         )
 
@@ -101,9 +91,7 @@ class Conv1DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             nn.Conv1d(in_channels, out_channels, kernel_size, stride, padding),
-            nn.BatchNorm1d(out_channels),
-            nn.LeakyReLU(alpha),
-            nn.Dropout(dropout)
+            nn.LeakyReLU(alpha)
         )
 
 class Conv2DCombo(_Combo):
@@ -116,9 +104,7 @@ class Conv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding),
-            # nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(alpha),
-            # nn.Dropout(dropout)
+            nn.LeakyReLU(alpha)
         )
 
 class SNConv2DCombo(_Combo):
@@ -131,48 +117,5 @@ class SNConv2DCombo(_Combo):
         super().__init__()
         self.model = nn.Sequential(
             spectral_norm(nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)),
-            # nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(alpha),
-            # nn.Dropout(dropout)
+            nn.LeakyReLU(alpha)
         )
-
-class ResidualBlock(nn.Module):
-    def __init__(self, in_features, out_features, alpha=0.2):
-        super().__init__()
-        self.in_features, self.out_features = in_features, out_features
-        self.blocks = nn.Sequential(
-            nn.Linear(in_features, out_features),
-            nn.BatchNorm1d(out_features)
-        )
-        self.activate = nn.Softplus() #nn.LeakyReLU(alpha)
-    
-    def forward(self, x):
-        residual = x if self.should_apply_shortcut else 0
-        x = self.blocks(x)
-        x += residual
-        x = self.activate(x)
-        return x
-    
-    @property
-    def should_apply_shortcut(self):
-        return self.in_features == self.out_features
-
-class SNResidualBlock(nn.Module):
-    def __init__(self, in_features, out_features, alpha=0.2):
-        super().__init__()
-        self.in_features, self.out_features = in_features, out_features
-        self.blocks = nn.Sequential(
-            spectral_norm(nn.Linear(in_features, out_features))
-        )
-        self.activate = nn.Softplus() #nn.LeakyReLU(alpha)
-    
-    def forward(self, x):
-        residual = x if self.should_apply_shortcut else 0
-        x = self.blocks(x)
-        x += residual
-        x = self.activate(x)
-        return x
-    
-    @property
-    def should_apply_shortcut(self):
-        return self.in_features == self.out_features

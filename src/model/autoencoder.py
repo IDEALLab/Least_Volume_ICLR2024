@@ -2,7 +2,6 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import functorch as ft
 from tqdm import tqdm
 from .utils import first_element
 
