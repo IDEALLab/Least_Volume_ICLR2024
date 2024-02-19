@@ -5,6 +5,7 @@
 data/
 # results/
 saves/
+saves
 */archive
 .vscode/
 

@@ -81,9 +81,7 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
 
     Decoder = (TrueSNDCGeneratorSig if sigmoid else TrueSNDCGenerator) if not nolip else (DCGeneratorSig if sigmoid else DCGenerator)
 
-    if ae_name == 'dp':
-        experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, DynamicPruningAE_BCEO, device=device) # SNMLP for spectral normalization
-    elif ae_name == 'vol':
+    if ae_name == 'vol':
         configs['eps'] = eps
         experiment = Experiment(configs, DCDiscriminator, Decoder, Adam, VolumeAE_BCE, device=device)
     elif ae_name == 'l1':
@@ -103,14 +101,14 @@ def main(name, ae_name, epochs=10000, batch=100, lam=1e-4, sigmoid=True, device=
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('dataset', help='name of the dataset')
-    parser.add_argument('-n', '--name', default='dp', help='name of the autoencoder')
+    parser.add_argument('-n', '--name', default='vol', help='name of the autoencoder')
     parser.add_argument('-d', '--device', default='cpu', help='device to run the experiments')
     parser.add_argument('-e', '--epochs', type=int, default=10000, help='number of epochs')
     parser.add_argument('-b', '--batch', type=int, default=100, help='number of samples in a mini-batch')
     parser.add_argument('-l', '--lam', type=float, default=1e-4, help='weight for least volume')
     parser.add_argument('-s', '--sig', type=bool, default=True, help='sigmoid for decoder')
     parser.add_argument('--nolip', action='store_true', help='no Lipschitz regularization')
-    parser.add_argument('--eps', type=float, default=1, help='covergence threshold')
+    parser.add_argument('--eps', type=float, default=1, help='offset eta in the paper')
     parser.add_argument('--num', type=int, default=10, help='number of saves')
     parser.add_argument('--com', type=str, default='', help='comment')
     parser.add_argument('--cv', type=str, default=0, help='cv')

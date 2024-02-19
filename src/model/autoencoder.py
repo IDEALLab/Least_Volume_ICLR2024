@@ -115,32 +115,3 @@ class AutoEncoder(_AutoEncoder):
 class BCEAutoencoder(AutoEncoder):
     def loss_rec(self, x, x_hat):
         return F.binary_cross_entropy(x_hat, x)
-
-class CondensedAE(AutoEncoder):
-    def __init__(self, configs: dict, Encoder: object, Decoder: object, Optimizer: object, weights=[1., 0.001]):
-        super().__init__(configs, Encoder, Decoder, Optimizer, weights)
-    
-    def loss(self, x, **kwargs):
-        z = self.encode(x)
-        x_hat = self.decode(z)
-        return torch.stack([self.loss_rec(x, x_hat), self.loss_vol(z)])
-    
-    def loss_vol(self, z):
-        return torch.exp(torch.log(z.std(0)+1).mean())
-    
-    def _batch_report(self, i, batch, loss, pbar, tb_writer, callbacks, **kwargs): 
-        pbar.set_postfix({'rec': loss[0].item(), 'vol': loss[1].item()}); pbar.refresh()
-
-    def _epoch_report(self, epoch, batch, loss, pbar, tb_writer, callbacks=[], report_interval=1, **kwargs):
-        if epoch % report_interval == 0:
-            if tb_writer:
-                tb_writer.add_scalar('rec', loss[0].item(), epoch)
-                tb_writer.add_scalar('vol', loss[1].item(), epoch)
-                tb_writer.add_histogram('z_std', self.encoder(batch).std(0).detach().cpu().numpy(), epoch)
-            else:
-                pass
-        for callback in callbacks:
-            try: 
-                callback(self, epoch=epoch, epochs=pbar.total, batch=batch, loss=loss, tb_writer=tb_writer, **kwargs)
-            except:
-                pass
