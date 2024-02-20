@@ -30,7 +30,7 @@ Therefore, we should spectral-normalize the convolutional layers and the fully-c
 This function supports all Conv and ConvTranspose layers in PyTorch.
 * For fully-connected layers, [`spectral_norm()`](https://pytorch.org/docs/stable/generated/torch.nn.utils.parametrizations.spectral_norm.html) from PyTorch works fine.
 
-Due to the similarity in their APIs, you may refer to PyTorch's [Parametrizations Tutorial](https://pytorch.org/tutorials/intermediate/parametrizations.html) for more details, or just check how they are employed in [layers.py](./src/model/layers.py#L80).
+Due to the similarity in their APIs, you may refer to PyTorch's [Parametrizations Tutorial](https://pytorch.org/tutorials/intermediate/parametrizations.html) for more details, or just check out how they are employed in [layers.py](./src/model/layers.py#L80). If you are interested in [`spectral_norm_conv()`](./src/model/utils/parametrization.py#L94)'s normalization accuracy, you may retrieve the convolutional layers' linear maps with [`torch.autograd.functional.jacobian()`](https://pytorch.org/docs/stable/generated/torch.autograd.functional.jacobian.html) and investigate their spectral norms with [`torch.linalg.svdvals()`](https://pytorch.org/docs/stable/generated/torch.linalg.svdvals.html).
 
 ## Tutorials
 
